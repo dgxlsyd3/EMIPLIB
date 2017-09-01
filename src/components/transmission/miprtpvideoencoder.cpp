@@ -22,6 +22,7 @@
 
 */
 
+#pragma warning(disable:4018)
 #include "mipconfig.h"
 #include "miprtpvideoencoder.h"
 #include "miprtpmessage.h"

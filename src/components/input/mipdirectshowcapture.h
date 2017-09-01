@@ -27,26 +27,28 @@
  */
 
 #ifndef MIPDIRECTSHOWCAPTURE_H
-
 #define MIPDIRECTSHOWCAPTURE_H
 
 #include "mipconfig.h"
-
 #ifdef MIPCONFIG_SUPPORT_DIRECTSHOW
+
 
 #include "mipcomponent.h"
 #include "mipsignalwaiter.h"
 #include "miptime.h"
 #include <dshow.h>
+
 #include <Qedit.h>
+// #import "qedit.dll" raw_interfaces_only named_guids
+// using namespace DexterLib;
+
 #include <list>
 
 class MIPVideoMessage;
 
-/** A DirectShow input component.
- *  This component is a DirectShow input component, e.g. for a webcam. It accepts
- *  both MIPSYSTEMMESSAGE_TYPE_WAITTIME and MIPSYSTEMMESSAGE_TYPE_ISTIME messages
- *  and created YUV420P encoded raw video messages.
+/** DirectShow 输入组件，比如摄像头
+ *  它可以接受MIPSYSTEMMESSAGE_TYPE_WAITTIME消息和MIPSYSTEMMESSAGE_TYPE_ISTIME消息，
+ *  并创建YUV420P编码的原始视频消息。
  */
 class MIPDirectShowCapture : public MIPComponent
 {
@@ -54,34 +56,36 @@ public:
 	MIPDirectShowCapture();
 	~MIPDirectShowCapture();
 
-	/** Initializes the component.
-	 *  This function initializes the component.
-	 *  \param width Width of the video frames.
-	 *  \param height Height of the video frames.
-	 *  \param frameRate Framerate.
-	 *  \param devideNumber 0 opens the first device which is encountered, 1 the second, etc.
+	/** 组件初始化函数
+	 *  \param width 帧的宽度
+	 *  \param height 帧的高度
+	 *  \param frameRate 帧率.
+	 *  \param devideNumber 摄像头序号，0为第一个摄像头，1为第二个...
 	 */
 	bool open(int width, int height, real_t frameRate, int deviceNumber = 0);
 
-	/** Closes the DirectShow input device. */
+	/** 关闭 DirectShow 输入设备 */
 	bool close();
 
-	/** Returns the width of captured video frames. */
-	int getWidth() const											{ if (m_pGraph == 0) return -1; return m_width; }
+	/** 返回捕获的帧宽度 */
+	int getWidth() const;
 
-	/** Returns the height of captured video frames. */
-	int getHeight()	const											{ if (m_pGraph == 0) return -1; return m_height; }
+	/** 返回捕获的帧高度 */
+	int getHeight()	const;
 
-	/** Sets the source ID to be stored in generated messages. */
-	void setSourceID(uint64_t srcID)									{ m_sourceID = srcID; }
+	/** 设置生成消息的source ID */
+	void setSourceID(uint64_t srcID);
 
-	/** Returns the source ID which will be stored in generated messages. */
-	uint64_t getSourceID() const										{ return m_sourceID; }
+	/** 返回生成消息的source ID */
+	uint64_t getSourceID() const;
 
-	/** Returns the message subtype of the frames produced by this component (for uncompressed frames). */
-	uint32_t getFrameSubtype() const							{ return m_subType; }
+	/** 返回消息中的视频帧subtype */
+	uint32_t getFrameSubtype() const;
 
+	/** 前级组件调用此函数，传递消息到本组件。*/
 	bool push(const MIPComponentChain &chain, int64_t iteration, MIPMessage *pMsg);
+
+	/** 后级组件调用此函数，将从本组件获取消息。*/
 	bool pull(const MIPComponentChain &chain, int64_t iteration, MIPMessage **pMsg);
 private:
 	void zeroAll();
@@ -89,54 +93,24 @@ private:
 	bool initCaptureGraphBuilder();
 	bool getCaptureDevice(int deviceNumber);
 	bool setFormat(int w, int h, real_t rate);
-	bool listGUIDS(std::list<GUID> &guids);
+	bool listCameraSubtypeId(std::list<GUID> &guids);
 	void copyVideoFrame();
 
 	class GrabCallback : public ISampleGrabberCB
 	{
 	public:
-		GrabCallback(MIPDirectShowCapture *pDSCapt)										{ m_pDSCapt = pDSCapt; }
-		STDMETHODIMP_(ULONG) AddRef()													{ return 2; }
-		STDMETHODIMP_(ULONG) Release()													{ return 1; }
-
-		STDMETHODIMP QueryInterface(REFIID riid, void ** ppv)
-		{	
-			if( riid == IID_ISampleGrabberCB || riid == IID_IUnknown ) 
-			{
-				*ppv = (void *) static_cast<ISampleGrabberCB*> ( this );
-				return NOERROR;
-			}    
-
-			return E_NOINTERFACE;
-		}
-
-		STDMETHODIMP SampleCB( double SampleTime, IMediaSample * pSample )
-		{
-			return 0;
-		}
-
-		STDMETHODIMP BufferCB( double dblSampleTime, BYTE * pBuffer, long lBufferSize )
-		{
-			size_t minsize = (size_t)lBufferSize;
-
-			if (minsize > m_pDSCapt->m_largeFrameSize)
-				minsize = m_pDSCapt->m_largeFrameSize;
-
-			m_pDSCapt->m_frameMutex.Lock();
-			memcpy(m_pDSCapt->m_pFullFrame, pBuffer, minsize);
-			m_pDSCapt->m_gotFrame = false;
-			m_pDSCapt->m_captureTime = MIPTime::getCurrentTime();
-			m_pDSCapt->m_frameMutex.Unlock();
-		
-			m_pDSCapt->m_sigWait.signal();
-			return 0;
-		}
+		GrabCallback(MIPDirectShowCapture *pDSCapt);
+		virtual ULONG __stdcall AddRef();
+		virtual ULONG __stdcall Release();
+		HRESULT __stdcall QueryInterface(const IID & riid, void ** ppv);
+		HRESULT __stdcall SampleCB( double SampleTime, IMediaSample * pSample );
+		HRESULT __stdcall BufferCB( double dblSampleTime, BYTE * pBuffer, long lBufferSize );
 	private:
 		MIPDirectShowCapture *m_pDSCapt;
 	};
 
-	IGraphBuilder *m_pGraph;
-	ICaptureGraphBuilder2 *m_pBuilder;
+	IGraphBuilder *m_pGraphBuilder;
+	ICaptureGraphBuilder2 *m_pGraphBuilder2;
 	IMediaControl *m_pControl;
 	IBaseFilter *m_pCaptDevice;
 	IBaseFilter *m_pNullRenderer;
@@ -156,11 +130,16 @@ private:
 	bool m_gotFrame;
 	MIPTime m_captureTime;
 	uint64_t m_sourceID;
-
 	GUID m_selectedGuid;
 	uint32_t m_subType;
+
+	//for debug
+	DWORD m_debug_dwRegister;
+	HRESULT v_debug_AddToRot(IUnknown *pUnkGraph, DWORD *pdwRegister);
+	void v_debug_RemoveFromRot(DWORD pdwRegister);
+	HRESULT v_debug_SaveGraphFile(IGraphBuilder *pGraph, WCHAR *wszPath);
+
 };
 
 #endif // MIPCONFIG_SUPPORT_DIRECTSHOW
-
 #endif // MIPDIRECTSHOWCAPTURE_H

@@ -115,7 +115,8 @@ bool MIPSpeexEchoCanceller::push(const MIPComponentChain &chain, int64_t iterati
 		clearMessages();
 	}
 
-	if (!(pMsg->getMessageType() == MIPMESSAGE_TYPE_AUDIO_RAW && pMsg->getMessageSubtype() == MIPRAWAUDIOMESSAGE_TYPE_S16) )
+	if (!(pMsg->getMessageType() == MIPMESSAGE_TYPE_AUDIO_RAW && 
+		  pMsg->getMessageSubtype() == MIPRAWAUDIOMESSAGE_TYPE_S16) )
 	{
 		setErrorString(MIPSPEEXECHOCANCELLER_ERRSTR_BADMESSAGE);
 		return false;
@@ -143,9 +144,15 @@ bool MIPSpeexEchoCanceller::push(const MIPComponentChain &chain, int64_t iterati
 	
 	uint16_t *pFrames = new uint16_t[m_numFrames];
 
-	speex_echo_capture((SpeexEchoState *)m_pSpeexEchoState, (int16_t *)pAudioMsg->getFrames(), (int16_t *)pFrames);
+	speex_echo_capture(
+		(SpeexEchoState *)m_pSpeexEchoState, 
+		(int16_t *)pAudioMsg->getFrames(),
+		(int16_t *)pFrames);
 
-	MIPRaw16bitAudioMessage *pNewMsg = new MIPRaw16bitAudioMessage(m_sampRate, 1, m_numFrames, true, MIPRaw16bitAudioMessage::Native, pFrames, true);
+	MIPRaw16bitAudioMessage *pNewMsg = new MIPRaw16bitAudioMessage(
+		m_sampRate, 1, m_numFrames, true, 
+		MIPRaw16bitAudioMessage::Native, pFrames, true);
+
 	pNewMsg->copyMediaInfoFrom(*pAudioMsg);
 	m_messages.push_back(pNewMsg);
 

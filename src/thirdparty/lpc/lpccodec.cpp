@@ -1,3 +1,4 @@
+#pragma warning(disable:4244)
 #include "mipconfig.h"
 
 #ifdef MIPCONFIG_SUPPORT_LPC

@@ -134,6 +134,13 @@ bool MIPRTPL16Encoder::pull(const MIPComponentChain &chain, int64_t iteration, M
 	}
 	else
 	{
+		/*
+		static DWORD dwTick=GetTickCount();
+		DWORD dwSub=GetTickCount()-dwTick;
+		if(dwSub!=0)
+			printf("MIPWinMMInput::pull=%d\n",dwSub);
+		dwTick=GetTickCount();*/
+
 		*pMsg = *m_msgIt;
 		m_msgIt++;
 	}

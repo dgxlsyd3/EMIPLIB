@@ -77,17 +77,17 @@ bool MIPSpeexEncoder::init(SpeexBandWidth b, int quality, int complexity, bool v
 
 	if (b == NarrowBand)
 	{
-		m_pState = speex_encoder_init(&speex_nb_mode);
+		m_pState = speex_encoder_init(speex_lib_get_mode(SPEEX_MODEID_NB));
 		m_sampRate = 8000;
 	}
 	else if (b == WideBand)
 	{
-		m_pState = speex_encoder_init(&speex_wb_mode);
+		m_pState = speex_encoder_init(speex_lib_get_mode(SPEEX_MODEID_WB));
 		m_sampRate = 16000;
 	}
 	else
 	{
-		m_pState = speex_encoder_init(&speex_uwb_mode);
+		m_pState = speex_encoder_init(speex_lib_get_mode(SPEEX_MODEID_UWB));
 		m_sampRate = 32000;
 	}
 	speex_encoder_ctl(m_pState,SPEEX_GET_FRAME_SIZE,&m_numFrames);
@@ -174,14 +174,18 @@ bool MIPSpeexEncoder::push(const MIPComponentChain &chain, int64_t iteration, MI
 	
 		const float *pFloatBuf = pAudioMsg->getFrames();
 		for (int i = 0 ; i < m_numFrames ; i++)
+		{
 			m_pFloatBuffer[i] = (float)(pFloatBuf[i]*32767.0);
+		}
 		
 		uint8_t *pBuffer = new uint8_t[m_numFrames]; // this should be more than enough memory
 	
 		speex_encode(m_pState, m_pFloatBuffer, m_pBits);
 		size_t numBytes = (size_t)speex_bits_write(m_pBits, (char *)pBuffer, (int)m_numFrames);
 		
-		MIPEncodedAudioMessage *pNewMsg = new MIPEncodedAudioMessage(MIPENCODEDAUDIOMESSAGE_TYPE_SPEEX, m_sampRate, 1, m_numFrames, pBuffer, numBytes, true);
+		MIPEncodedAudioMessage *pNewMsg = new MIPEncodedAudioMessage(
+			MIPENCODEDAUDIOMESSAGE_TYPE_SPEEX, m_sampRate, 1, m_numFrames, pBuffer, numBytes, true);
+
 		pNewMsg->copyMediaInfoFrom(*pAudioMsg); // copy time and sourceID
 		m_messages.push_back(pNewMsg);
 		
@@ -208,7 +212,7 @@ bool MIPSpeexEncoder::push(const MIPComponentChain &chain, int64_t iteration, MI
 			setErrorString(MIPSPEEXENCODER_ERRSTR_BADFRAMES);
 			return false;
 		}
-	
+
 		speex_bits_reset(m_pBits);
 	
 		uint8_t *pBuffer = new uint8_t[m_numFrames]; // this should be more than enough memory
@@ -223,6 +227,10 @@ bool MIPSpeexEncoder::push(const MIPComponentChain &chain, int64_t iteration, MI
 		m_msgIt = m_messages.begin();
 	}
 	
+	//static DWORD dwTick=GetTickCount();
+	//printf("MIPSpeexEncoder::push=%d\n",GetTickCount()-dwTick);
+	//dwTick=GetTickCount();
+
 	return true;
 }
 

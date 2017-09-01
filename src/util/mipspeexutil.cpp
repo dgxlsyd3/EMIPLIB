@@ -55,7 +55,7 @@ bool MIPSpeexUtil::processBytes(const void *speexData, size_t length)
 	int mode = speex_bits_unpack_unsigned(&m_bits,4);
 	int advance = mode;
 
-	speex_mode_query(&speex_nb_mode, SPEEX_SUBMODE_BITS_PER_FRAME, &advance);
+	speex_mode_query(speex_lib_get_mode(SPEEX_MODEID_NB), SPEEX_SUBMODE_BITS_PER_FRAME, &advance);
 	if (advance < 0)
 	{
 		// TODO
@@ -90,7 +90,7 @@ bool MIPSpeexUtil::processBytes(const void *speexData, size_t length)
 	mode = speex_bits_unpack_unsigned(&m_bits, 3);
 	advance = mode;
 	
-	speex_mode_query(&speex_wb_mode, SPEEX_SUBMODE_BITS_PER_FRAME, &advance);
+	speex_mode_query(speex_lib_get_mode(SPEEX_MODEID_WB), SPEEX_SUBMODE_BITS_PER_FRAME, &advance);
 	if (advance < 0)
 	{
 		// TODO
@@ -125,7 +125,7 @@ bool MIPSpeexUtil::processBytes(const void *speexData, size_t length)
 	mode = speex_bits_unpack_unsigned(&m_bits, 3);
 	advance = mode;
 	
-	speex_mode_query(&speex_wb_mode, SPEEX_SUBMODE_BITS_PER_FRAME, &advance);
+	speex_mode_query(speex_lib_get_mode(SPEEX_MODEID_WB), SPEEX_SUBMODE_BITS_PER_FRAME, &advance);
 	if (advance < 0)
 	{
 		// TODO

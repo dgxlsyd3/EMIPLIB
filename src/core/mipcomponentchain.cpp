@@ -1,24 +1,24 @@
 /*
-    
-  This file is a part of EMIPLIB, the EDM Media over IP Library.
-  
-  Copyright (C) 2006-2010  Hasselt University - Expertise Centre for
-                      Digital Media (EDM) (http://www.edm.uhasselt.be)
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+This file is a part of EMIPLIB, the EDM Media over IP Library.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+Copyright (C) 2006-2010  Hasselt University - Expertise Centre for
+Digital Media (EDM) (http://www.edm.uhasselt.be)
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  
-  USA
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  
+USA
 
 */
 
@@ -49,7 +49,7 @@
 MIPComponentChain::MIPComponentChain(const std::string &chainName)
 {
 	int status;
-	
+
 	if ((status = m_loopMutex.Init()) < 0)
 	{
 		std::cerr << "Error: can't initialize loop mutex (JMutex error code " << status << ")" << std::endl; 
@@ -77,7 +77,7 @@ bool MIPComponentChain::start()
 		setErrorString(MIPCOMPONENTCHAIN_ERRSTR_THREADRUNNING);
 		return false;
 	}
-	
+
 	if (m_pInputChainStart == 0)
 	{
 		setErrorString(MIPCOMPONENTCHAIN_ERRSTR_NOSTARTCOMPONENT);
@@ -86,7 +86,7 @@ bool MIPComponentChain::start()
 
 	std::list<MIPConnection> orderedList;
 	std::list<MIPComponent *> feedbackChain;
-	
+
 	if (!orderConnections(orderedList))
 		return false;
 	if (!buildFeedbackList(orderedList, feedbackChain))
@@ -114,7 +114,7 @@ bool MIPComponentChain::stop()
 	m_loopMutex.Lock();
 	m_stopLoop = true;
 	m_loopMutex.Unlock();
-	
+
 	MIPTime curTime = MIPTime::getCurrentTime();
 	while (JThread::IsRunning() && (MIPTime::getCurrentTime().getValue() - curTime.getValue()) < 5.0) // wait maximum five seconds
 	{
@@ -123,7 +123,7 @@ bool MIPComponentChain::stop()
 
 	if (JThread::IsRunning())
 		JThread::Kill();
-	
+
 	return true;
 }
 
@@ -143,14 +143,14 @@ bool MIPComponentChain::rebuild()
 
 	std::list<MIPConnection> orderedList;
 	std::list<MIPComponent *> feedbackChain;
-	
+
 	if (!orderConnections(orderedList))
 		return false;
 	if (!buildFeedbackList(orderedList, feedbackChain))
 		return false;
 
 	copyConnectionInfo(orderedList, feedbackChain);
-	
+
 	return true;
 }
 
@@ -173,27 +173,27 @@ bool MIPComponentChain::setChainStart(MIPComponent *startComponent)
 }
 
 bool MIPComponentChain::addConnection(MIPComponent *pPullComponent, MIPComponent *pPushComponent, bool feedback,
-		                     uint32_t allowedMessageTypes, uint32_t allowedSubmessageTypes)
+									  uint32_t allowedMessageTypes, uint32_t allowedSubmessageTypes)
 {
 	if (pPullComponent == 0 || pPushComponent == 0)
 	{
 		setErrorString(MIPCOMPONENTCHAIN_ERRSTR_COMPONENTNULL);
 		return false;
 	}
-	
+
 	m_inputConnections.push_back(MIPConnection(pPullComponent, pPushComponent, feedback, allowedMessageTypes, allowedSubmessageTypes));
 	return true;
 }
 
 bool MIPComponentChain::deleteConnection(MIPComponent *pPullComponent, MIPComponent *pPushComponent, bool feedback,
-		                     uint32_t allowedMessageTypes, uint32_t allowedSubmessageTypes)
+										 uint32_t allowedMessageTypes, uint32_t allowedSubmessageTypes)
 {
 	if (pPullComponent == 0 || pPushComponent == 0)
 	{
 		setErrorString(MIPCOMPONENTCHAIN_ERRSTR_COMPONENTNULL);
 		return false;
 	}
-	
+
 	std::list<MIPConnection>::iterator it;
 	MIPConnection conn(pPullComponent, pPushComponent, feedback, allowedMessageTypes, allowedSubmessageTypes);
 
@@ -206,7 +206,9 @@ bool MIPComponentChain::deleteConnection(MIPComponent *pPullComponent, MIPCompon
 			return true;
 		}
 		else
+		{
 			it++;
+		}
 	}
 
 	setErrorString(MIPCOMPONENTCHAIN_ERRSTR_CONNECTIONNOTFOUND);
@@ -215,36 +217,37 @@ bool MIPComponentChain::deleteConnection(MIPComponent *pPullComponent, MIPCompon
 
 void *MIPComponentChain::Thread()
 {
-#ifdef MIPDEBUG
-	std::cout << "MIPComponentChain::Thread started" << std::endl;
-#endif // MIPDEBUG
+	//#ifdef MIPDEBUG
+	//std::cout << this->getName() <<" MIPComponentChain::Thread started -> " <<GetCurrentThreadId()<< std::endl;
+	//#endif // MIPDEBUG
 
 	bool done = false;
 	bool error = false;
 	int64_t iteration = 1;
 	std::string errorComponent, errorString;
-	
+
 	m_loopMutex.Lock();
 	done = m_stopLoop;
 	m_loopMutex.Unlock();
-	
+
 	JThread::ThreadStarted();
-	
+
 	MIPSystemMessage startMsg(MIPSYSTEMMESSAGE_TYPE_WAITTIME);
-	
+
 	while (!done && !error)
 	{
 		MIPTime::wait(MIPTime(0,0));
 		m_chainMutex.Lock();
 		m_pInternalChainStart->lock();
-#ifdef MIPDEBUG2
+		#ifdef MIPDEBUG2
 		std::cout << std::endl << m_chainName << " START " << iteration << std::endl;
 		std::cout << m_chainName << " push start: " << m_pInternalChainStart->getComponentName() << std::endl;
-#endif // MIPDEBUG2
-#ifdef MIPDEBUG3
+		#endif // MIPDEBUG2
+
+		#ifdef MIPDEBUG3
 		std::cout << std::endl << "I " << iteration << " start in chain \"" << m_chainName << std::endl;
 		std::cout << "    pushing WaitTime to: " << m_pInternalChainStart->getComponentName() << std::endl;
-#endif // MIPDEBUG3
+		#endif // MIPDEBUG3
 
 		if (!m_pInternalChainStart->push(*this, iteration, &startMsg))
 		{
@@ -255,15 +258,15 @@ void *MIPComponentChain::Thread()
 			m_chainMutex.Unlock();
 			break;
 		}
-#ifdef MIPDEBUG2
+		#ifdef MIPDEBUG2
 		std::cout << m_chainName << " push stop:  " << m_pInternalChainStart->getComponentName() << std::endl;
-#endif // MIPDEBUG2
+		#endif // MIPDEBUG2
 		m_pInternalChainStart->unlock();
 
-#ifdef MIPDEBUG
-	//	MIPTime curTime = MIPTime::getCurrentTime();
-#endif // MIPDEBUG
-		
+		#ifdef MIPDEBUG
+		//	MIPTime curTime = MIPTime::getCurrentTime();
+		#endif // MIPDEBUG
+
 		std::list<MIPConnection>::const_iterator it;
 
 		for (it = m_orderedConnections.begin() ; !error && it != m_orderedConnections.end() ; it++)
@@ -275,17 +278,21 @@ void *MIPComponentChain::Thread()
 
 			pPullComp->lock();
 			if (pPushComp->getComponentPointer() != pPullComp->getComponentPointer())
+			{
 				pPushComp->lock();
+			}
 
 			MIPMessage *msg = 0;
-#ifdef MIPDEBUG3
+			#ifdef MIPDEBUG3
 			int msgCount = 0;
-#endif // MIPDEBUG3
+			#endif // MIPDEBUG3
+			
 			do
 			{
-#ifdef MIPDEBUG2
+				#ifdef MIPDEBUG2
 				std::cout << m_chainName << " pull start: " << pPullComp->getComponentName() << std::endl;
-#endif // MIPDEBUG2
+				#endif // MIPDEBUG2
+
 				if (!pPullComp->pull(*this, iteration, &msg))
 				{
 					error = true;
@@ -294,9 +301,10 @@ void *MIPComponentChain::Thread()
 				}
 				else
 				{
-#ifdef MIPDEBUG2
+					#ifdef MIPDEBUG2
 					std::cout << m_chainName << " pull stop:  " << pPullComp->getComponentName() << std::endl;
-#endif // MIPDEBUG2
+					#endif // MIPDEBUG2
+
 					if (msg) // Ok, pass the message
 					{
 						uint32_t msgType = msg->getMessageType();
@@ -304,37 +312,40 @@ void *MIPComponentChain::Thread()
 
 						if ((msgType&mask1) && (msgSubtype&mask2))
 						{
-#ifdef MIPDEBUG3
+							#ifdef MIPDEBUG3
 							msgCount++;
-#endif // MIPDEBUG3
+							#endif // MIPDEBUG3
 
-#ifdef MIPDEBUG2
+							#ifdef MIPDEBUG2
 							std::cout << m_chainName << " push start: " << pPushComp->getComponentName() << std::endl;
-#endif // MIPDEBUG2
+							#endif // MIPDEBUG2
 							if(!pPushComp->push(*this, iteration, msg))
 							{
 								error = true;
 								errorComponent = pPushComp->getComponentName();
 								errorString = pPushComp->getErrorString();
 							}
-#ifdef MIPDEBUG2
+							#ifdef MIPDEBUG2
 							std::cout << m_chainName << " push stop:  " << pPushComp->getComponentName() << std::endl;
-#endif // MIPDEBUG2
+							#endif // MIPDEBUG2
 						}
 					}
-#ifdef MIPDEBUG2
+					#ifdef MIPDEBUG2
 					std::cout << m_chainName << " all messages pushed" << std::endl;
-#endif // MIPDEBUG2
+					#endif // MIPDEBUG2
 
 				}
 			} while (!error && msg);
-			
+
 			pPullComp->unlock();
 			if (pPushComp->getComponentPointer() != pPullComp->getComponentPointer())
+			{
 				pPushComp->unlock();
-#ifdef MIPDEBUG3
+			}
+
+			#ifdef MIPDEBUG3
 			std::cout << "   Transferred " << msgCount << " messages from " << pPullComp->getComponentName() << " (" << (void *)pPullComp << ") to " << pPushComp->getComponentName() << " (" << (void  *)pPushComp << ")" << std::endl;
-#endif // MIPDEBUG3
+			#endif // MIPDEBUG3
 		}
 
 		if (error)
@@ -342,18 +353,18 @@ void *MIPComponentChain::Thread()
 			m_chainMutex.Unlock();
 			break;
 		}
-		
+
 		std::list<MIPComponent *>::const_iterator fbIt;
 		MIPFeedback feedback;
 		int64_t chainID = 0;
-		
-#ifdef MIPDEBUG4
+
+		#ifdef MIPDEBUG4
 		//std::cerr << "Processing feedback:" << std::endl;
-#endif // MIPDEBUG4
-		
-#ifdef MIPDEBUG4
+		#endif // MIPDEBUG4
+
+		#ifdef MIPDEBUG4
 		std::cerr << "\tNEW CHAIN" << std::endl;
-#endif // MIPDEBUG4
+		#endif // MIPDEBUG4
 
 		for (fbIt = m_feedbackChain.begin() ; !error && fbIt != m_feedbackChain.end() ; fbIt++)
 		{
@@ -361,17 +372,17 @@ void *MIPComponentChain::Thread()
 			{
 				feedback = MIPFeedback(); // reinitialize feedback
 				chainID++;
-#ifdef MIPDEBUG4
+				#ifdef MIPDEBUG4
 				std::cerr << "\tNEW CHAIN" << std::endl;
-#endif // MIPDEBUG4
+				#endif // MIPDEBUG4
 			}
 			else
 			{
 				MIPComponent *pFbComp = *fbIt;
 				pFbComp->lock();
-#ifdef MIPDEBUG4
+				#ifdef MIPDEBUG4
 				std::cerr << "\t\t" << pFbComp->getComponentName() << " " << ((void *)pFbComp) << std::endl;
-#endif // MIPDEBUG4
+				#endif // MIPDEBUG4
 				if (!pFbComp->processFeedback(*this, chainID, &feedback))
 				{
 					error = true;
@@ -383,30 +394,30 @@ void *MIPComponentChain::Thread()
 		}
 
 		m_chainMutex.Unlock();
-		
+
 		if (error)
 			break;
-		
+
 		//std::cerr << std::endl;
-		
+
 		m_loopMutex.Lock();
 		done = m_stopLoop;
 		m_loopMutex.Unlock();
 		iteration++;
 
-#ifdef MIPDEBUG
-//		MIPTime diff = MIPTime::getCurrentTime();
-//		diff -= curTime;
-//		std::cout << "Loop time: " << diff.getString() << std::endl;
-#endif // MIPDEBUG
+		#ifdef MIPDEBUG
+		//		MIPTime diff = MIPTime::getCurrentTime();
+		//		diff -= curTime;
+		//		std::cout << "Loop time: " << diff.getString() << std::endl;
+		#endif // MIPDEBUG
 	}
-	
+
 	onThreadExit(error, errorComponent, errorString);
-	
-#ifdef MIPDEBUG
+
+	#ifdef MIPDEBUG
 	std::cout << "MIPComponentChain::Thread stopped" << std::endl;
-#endif // MIPDEBUG
-	
+	#endif // MIPDEBUG
+
 	return 0;
 }
 
@@ -419,21 +430,21 @@ bool MIPComponentChain::orderConnections(std::list<MIPConnection> &orderedConnec
 	for (it = m_inputConnections.begin() ; it != m_inputConnections.end() ; it++)
 		(*it).setMark(false);
 
-#ifdef MIPDEBUG3
+	#ifdef MIPDEBUG3
 	int layerNumber = 0;
 	std::cout << "Start of connection ordering" << std::endl;
-#endif // MIPDEBUG3
-	
+	#endif // MIPDEBUG3
+
 	componentLayer.push_back(m_pInputChainStart);
 	while (!componentLayer.empty())
 	{
-#ifdef MIPDEBUG3
+		#ifdef MIPDEBUG3
 		layerNumber++;
 		std::cout << "Layer " << layerNumber << ":" << std::endl;
-#endif // MIPDEBUG3
+		#endif // MIPDEBUG3
 		std::list<MIPComponent *> newLayer;
 		std::list<MIPComponent *>::const_iterator compit;
-		
+
 		for (compit = componentLayer.begin() ; compit != componentLayer.end() ; compit++)
 		{
 			for (it = m_inputConnections.begin() ; it != m_inputConnections.end() ; it++)
@@ -455,29 +466,33 @@ bool MIPComponentChain::orderConnections(std::list<MIPConnection> &orderedConnec
 						bool found = false;
 						MIPComponent *component = (*it).getPushComponent();
 						std::list<MIPComponent *>::const_iterator compit2;
-#ifdef MIPDEBUG3
+						#ifdef MIPDEBUG3
 						std::cout << "   " << (*it).getPullComponent()->getComponentName() << " (" << (void *)((*it).getPullComponent()) << ") -> " << (*it).getPushComponent()->getComponentName() << " (" << (void*)((*it).getPushComponent()) << ")" <<std::endl;
-#endif // MIPDEBUG3
+						#endif // MIPDEBUG3
 
 						for (compit2 = newLayer.begin() ; !found && compit2 != newLayer.end() ; compit2++)
 						{
 							if ((*compit2) == component)
+							{
 								found = true;
+							}
 						}
 
 						if (!found)
+						{
 							newLayer.push_back(component);
+						}
 					}
 				}
 			}
 		}
-		
+
 		componentLayer = newLayer;
 	}
-	
-#ifdef MIPDEBUG3
+
+	#ifdef MIPDEBUG3
 	std::cout << "End of connection ordering" << std::endl;
-#endif // MIPDEBUG3
+	#endif // MIPDEBUG3
 
 	for (it = m_inputConnections.begin() ; it != m_inputConnections.end() ; it++)
 	{
@@ -489,7 +504,7 @@ bool MIPComponentChain::orderConnections(std::list<MIPConnection> &orderedConnec
 	}
 
 	orderedConnections = orderedList;
-	
+
 	return true;
 }
 
@@ -507,7 +522,7 @@ bool MIPComponentChain::buildFeedbackList(std::list<MIPConnection> &orderedList,
 		else
 			(*it).setMark(false);
 	}
-	
+
 	while (!done)
 	{
 		bool found = false;
@@ -524,10 +539,10 @@ bool MIPComponentChain::buildFeedbackList(std::list<MIPConnection> &orderedList,
 		if (found) // ok, found a starting point, build the subchain
 		{
 			(*it).setMark(true);
-			
+
 			// The connections are ordered! We'll make use of this by only
 			// considering connections further down the road
-			
+
 			subChain.clear();
 
 			// connection is from pull to push
@@ -538,7 +553,7 @@ bool MIPComponentChain::buildFeedbackList(std::list<MIPConnection> &orderedList,
 
 			std::list<MIPConnection>::iterator startIt = it;
 			bool done2 = false;
-			
+
 			while (!done2)
 			{
 				std::list<MIPConnection>::iterator nextStartIt;
@@ -576,7 +591,7 @@ bool MIPComponentChain::buildFeedbackList(std::list<MIPConnection> &orderedList,
 			}
 
 			// add the subchain to the feedbacklist in reverse
-		
+
 			if (!feedbackChain.empty())
 				feedbackChain.push_front(0); // mark new subchain
 
@@ -590,7 +605,7 @@ bool MIPComponentChain::buildFeedbackList(std::list<MIPConnection> &orderedList,
 	}
 
 	feedbackComponentChain = feedbackChain;
-	
+
 	return true;
 }
 
@@ -600,15 +615,15 @@ void MIPComponentChain::copyConnectionInfo(const std::list<MIPConnection> &order
 	std::list<MIPComponent *>::const_iterator it2;
 
 	m_chainMutex.Lock();
-	
+
 	m_orderedConnections.clear();
 	m_feedbackChain.clear();
-	
+
 	for (it = orderedList.begin() ; it != orderedList.end() ; it++)
 		m_orderedConnections.push_back(*it);
 	for (it2 = feedbackChain.begin() ; it2 != feedbackChain.end() ; it2++)
 		m_feedbackChain.push_back(*it2);
-	
+
 	m_pInternalChainStart = m_pInputChainStart;
 
 	m_chainMutex.Unlock();

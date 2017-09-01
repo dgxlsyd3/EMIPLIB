@@ -29,9 +29,9 @@
 
 #include "mipdebug.h"
 
-#define MIPVIDEOFRAMESTORAGE_ERRSTR_NOTINIT					"Not initialized"
+#define MIPVIDEOFRAMESTORAGE_ERRSTR_NOTINIT						"Not initialized"
 #define MIPVIDEOFRAMESTORAGE_ERRSTR_ALREADYINIT					"Already initialized"
-#define MIPVIDEOFRAMESTORAGE_ERRSTR_NOPULL					"Pull is not supported"
+#define MIPVIDEOFRAMESTORAGE_ERRSTR_NOPULL						"Pull is not supported"
 #define MIPVIDEOFRAMESTORAGE_ERRSTR_NOTFOUND					"No frame found for specified source"
 #define MIPVIDEOFRAMESTORAGE_ERRSTR_BADMESSAGE					"Bad message"
 

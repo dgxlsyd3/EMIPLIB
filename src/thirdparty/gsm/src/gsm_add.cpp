@@ -13,7 +13,7 @@
 /*
  *  See private.h for the more commonly used macro versions.
  */
-
+#pragma warning(disable:4244)
 #include	<stdio.h>
 #include	<assert.h>
 

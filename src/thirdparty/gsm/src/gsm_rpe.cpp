@@ -9,7 +9,7 @@
  */
 
 /* $Header: /home/jori/CVSROOT/jvoiplib/src/thirdparty/gsm/src/gsm_rpe.cpp,v 1.2 2004/09/02 14:47:35 jori Exp $ */
-
+#pragma warning(disable:4244)
 #include <stdio.h>
 #include <assert.h>
 

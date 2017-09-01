@@ -96,7 +96,8 @@ bool MIPAVCodecEncoder::init(int width, int height, real_t framerate, int bitrat
 		m_pContext->bit_rate_tolerance = bitrate/20; // 5%
 	}
 	
-	if (avcodec_open(m_pContext, m_pCodec) < 0)
+	int op=avcodec_open(m_pContext, m_pCodec);
+	if ( op < 0)
 	{
 		m_pCodec = 0;
 		setErrorString(MIPAVCODECENCODER_ERRSTR_CANTINITCONTEXT);
@@ -146,7 +147,8 @@ bool MIPAVCodecEncoder::push(const MIPComponentChain &chain, int64_t iteration, 
 		return false;
 	}
 
-	if (!(pMsg->getMessageType() == MIPMESSAGE_TYPE_VIDEO_RAW && pMsg->getMessageSubtype() == MIPRAWVIDEOMESSAGE_TYPE_YUV420P))
+	if (!(pMsg->getMessageType() == MIPMESSAGE_TYPE_VIDEO_RAW && 
+		  pMsg->getMessageSubtype() == MIPRAWVIDEOMESSAGE_TYPE_YUV420P))
 	{
 		setErrorString(MIPAVCODECENCODER_ERRSTR_BADMESSAGE);
 		return false;
@@ -160,7 +162,9 @@ bool MIPAVCodecEncoder::push(const MIPComponentChain &chain, int64_t iteration, 
 		return false;
 	}
 
-	if (avpicture_fill((AVPicture *)m_pFrame, (uint8_t *)pVideoMsg->getImageData(), PIX_FMT_YUV420P, m_width, m_height) < 0)
+	if (avpicture_fill((AVPicture *)m_pFrame, 
+		  (uint8_t *)pVideoMsg->getImageData(), 
+		  PIX_FMT_YUV420P, m_width, m_height) < 0)
 	{
 		setErrorString(MIPAVCODECENCODER_ERRSTR_CANTFILLPICTURE);
 		return false;

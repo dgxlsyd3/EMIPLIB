@@ -21,7 +21,7 @@
   USA
 
 */
-
+#pragma warning(disable:4996)
 #include "mipconfig.h"
 #include "mipwavwriter.h"
 #include <string.h>

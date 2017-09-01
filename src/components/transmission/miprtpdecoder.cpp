@@ -47,7 +47,11 @@ using namespace __gnu_cxx;
 #define MIPRTPDECODER_ERRSTR_BADMESSAGE				"Bad message"
 #define MIPRTPDECODER_ERRSTR_NOPACKETDECODERINSTALLED		"No RTP packet decoder installed for received payload type"
 
-MIPRTPDecoder::MIPRTPDecoder() : MIPComponent("MIPRTPDecoder"), m_playbackOffset(0), m_prevCleanTableTime(0), m_maxJitterBuffer(-1)
+MIPRTPDecoder::MIPRTPDecoder() : 
+	MIPComponent("MIPRTPDecoder"), 
+	m_playbackOffset(0), 
+	m_prevCleanTableTime(0), 
+	m_maxJitterBuffer(-1)
 {
 	m_init = false;
 }
@@ -158,7 +162,8 @@ bool MIPRTPDecoder::push(const MIPComponentChain &chain, int64_t iteration, MIPM
 			if (pSrcDat != 0)
 			{
 				pSrcDat->SetTimestampUnit((double)timestampUnit);
-//				std::cout << "Storing timestamp unit 1.0/" << (1.0/timestampUnit) << " for SSRC" << pRTPPack->GetSSRC() << std::endl;
+//				std::cout << "Storing timestamp unit 1.0/" << (1.0/timestampUnit) 
+//				<< " for SSRC" << pRTPPack->GetSSRC() << std::endl;
 			}
 			m_pRTPSess->EndDataAccess();
 		}
@@ -247,6 +252,8 @@ bool MIPRTPDecoder::push(const MIPComponentChain &chain, int64_t iteration, MIPM
 			}
 		}
 		
+		//这里获取到了远端RTP ssrc标识
+		//SourceID的来源
 		pNewMsg->setSourceID(sourceID);
 		pNewMsg->setTime(streamTime);
 		

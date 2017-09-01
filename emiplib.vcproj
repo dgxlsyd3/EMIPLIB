@@ -42,14 +42,13 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\qt\include, ..\avcodec, ..\speex-1.2rc1\include, ..\jthread-1.2.1\src,..\jrtplib-3.7.1\src,src\core,src\util, src\components\input, src\components\output, src\components\timer, src\components\mixer, src\components\transform, src\components\transmission, src\components\codec, src\thirdparty\lpc, src\thirdparty\gsm\inc,src\thirdparty\tinyjpeg, &quot;C:\Program Files\Microsoft Platform SDK\Include&quot;"
+				AdditionalIncludeDirectories="&quot;..\ffmpeg-git-6c4e9ca-win32-dev\include&quot;;&quot;..\jthread-1.2.1\src&quot;;&quot;..\jrtplib-3.7.1\src&quot;;src\core;src\util;src\components\input;src\components\output;src\components\timer;src\components\mixer;src\components\transform;src\components\transmission;src\components\codec;src\thirdparty\lpc;src\thirdparty\gsm\inc;src\thirdparty\tinyjpeg;&quot;D:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Include&quot;;&quot;D:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Extras\DirectShow\Include&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
-				MinimalRebuild="true"
+				MinimalRebuild="false"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
 			/>
 			<Tool
@@ -63,6 +62,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				OutputFile="$(ProjectDir)\lib\$(ProjectName)_d.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -108,9 +108,9 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\qt\include, ..\avcodec, ..\speex-1.2rc1\include, ..\jthread-1.2.1\src,..\jrtplib-3.7.1\src,src\core,src\util, src\components\input, src\components\output, src\components\timer, src\components\mixer, src\components\transform, src\components\transmission, src\components\codec, src\thirdparty\lpc, src\thirdparty\gsm\inc,src\thirdparty\tinyjpeg, &quot;C:\Program Files\Microsoft Platform SDK\Include&quot;"
+				AdditionalIncludeDirectories="&quot;..\ffmpeg-git-6c4e9ca-win32-dev\include&quot;;&quot;..\jthread-1.2.1\src&quot;;&quot;..\jrtplib-3.7.1\src&quot;;src\core;src\util;src\components\input;src\components\output;src\components\timer;src\components\mixer;src\components\transform;src\components\transmission;src\components\codec;src\thirdparty\lpc;src\thirdparty\gsm\inc;src\thirdparty\tinyjpeg;&quot;D:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Include&quot;;&quot;D:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Extras\DirectShow\Include&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
@@ -127,6 +127,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				OutputFile="$(ProjectDir)\lib\$(ProjectName).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -206,10 +207,6 @@
 						>
 					</File>
 					<File
-						RelativePath=".\src\components\output\mipqtoutput.cpp"
-						>
-					</File>
-					<File
 						RelativePath=".\src\components\output\mipsdlaudiooutput.cpp"
 						>
 					</File>
@@ -223,6 +220,10 @@
 					</File>
 					<File
 						RelativePath=".\src\components\output\mipwavoutput.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\src\components\output\mipwin32output.cpp"
 						>
 					</File>
 					<File
@@ -668,10 +669,6 @@
 						>
 					</File>
 					<File
-						RelativePath=".\src\components\output\mipqtoutput.h"
-						>
-					</File>
-					<File
 						RelativePath=".\src\components\output\mipsdlaudiooutput.h"
 						>
 					</File>
@@ -685,6 +682,10 @@
 					</File>
 					<File
 						RelativePath=".\src\components\output\mipwavoutput.h"
+						>
+					</File>
+					<File
+						RelativePath=".\src\components\output\mipwin32output.h"
 						>
 					</File>
 					<File

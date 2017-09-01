@@ -119,9 +119,13 @@ bool MIPWinMMOutput::open(int sampRate, int channels, MIPTime blockTime, MIPTime
 	m_prevCheckTime = MIPTime(0);
 
 	if (highPriority)
+	{
 		m_threadPrioritySet = false;
+	}
 	else
+	{
 		m_threadPrioritySet = true;
+	}
 	m_init = true;
 	
 	return true;
@@ -169,7 +173,8 @@ bool MIPWinMMOutput::close()
 
 bool MIPWinMMOutput::push(const MIPComponentChain &chain, int64_t iteration, MIPMessage *pMsg)
 {
-	if (!(pMsg->getMessageType() == MIPMESSAGE_TYPE_AUDIO_RAW && pMsg->getMessageSubtype() == MIPRAWAUDIOMESSAGE_TYPE_S16LE))
+	if (!(pMsg->getMessageType() == MIPMESSAGE_TYPE_AUDIO_RAW && 
+		  pMsg->getMessageSubtype() == MIPRAWAUDIOMESSAGE_TYPE_S16LE))
 	{
 		setErrorString(MIPWINMMOUTPUT_ERRSTR_BADMESSAGE);
 		return false;
@@ -224,11 +229,12 @@ bool MIPWinMMOutput::push(const MIPComponentChain &chain, int64_t iteration, MIP
 	}
 	else
 	{
-		if ((MIPTime::getCurrentTime().getValue() - m_prevCheckTime.getValue()) > 1.0) // wait at least a second
+		// wait at least a second
+		if ((MIPTime::getCurrentTime().getValue() - m_prevCheckTime.getValue()) > 1.0) 
 		{
 			if (bufCount - m_prevBufCount > 2) // getting out of sync: delay buildup
 			{
-//				std::cout << "HERE" << std::endl;
+				// std::cout << "HERE" << std::endl;
 				m_flushBuffers = true;
 				return true;
 			}
@@ -238,7 +244,9 @@ bool MIPWinMMOutput::push(const MIPComponentChain &chain, int64_t iteration, MIP
 			}
 		}
 		else
+		{
 			m_prevBufCount = bufCount;
+		}
 	}
 
 	size_t num = audioMessage->getNumberOfFrames() * m_channels;
@@ -247,7 +255,6 @@ bool MIPWinMMOutput::push(const MIPComponentChain &chain, int64_t iteration, MIP
 	for (int i = 0 ; i < loops ; i++)
 	{
 		// add the actual frame, duplicating it if we're running low on buffers
-
 		if (m_blocksInitialized == m_numBlocks)
 		{
 			if (waveOutUnprepareHeader(m_device,&m_frameArray[m_blockPos],sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
@@ -281,10 +288,13 @@ bool MIPWinMMOutput::push(const MIPComponentChain &chain, int64_t iteration, MIP
 
 		m_blockPos++;
 		if (m_blockPos == m_numBlocks)
+		{
 			m_blockPos = 0;
+		}
 		if (m_blocksInitialized != m_numBlocks)
+		{
 			m_blocksInitialized++;
-
+		}
 	}
 
 	return true;

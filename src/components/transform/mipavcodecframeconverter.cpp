@@ -42,7 +42,7 @@ using namespace __gnu_cxx;
 #define MIPAVCODECFRAMECONVERTER_ERRSTR_INVALIDDIMENSION		"Invalid target width or height"
 #define MIPAVCODECFRAMECONVERTER_ERRSTR_INVALIDSUBTYPE			"Invalid target subtype"
 #define MIPAVCODECFRAMECONVERTER_ERRSTR_UNSUPPORTEDSUBTYPE		"Unsupported target subtype"
-#define MIPAVCODECFRAMECONVERTER_ERRSTR_BADMESSAGE			"Invalid message type or subtype"
+#define MIPAVCODECFRAMECONVERTER_ERRSTR_BADMESSAGE			    "Invalid message type or subtype"
 
 MIPAVCodecFrameConverter::MIPAVCodecFrameConverter() : MIPComponent("MIPAVCodecFrameConverter")
 {
@@ -264,8 +264,9 @@ bool MIPAVCodecFrameConverter::push(const MIPComponentChain &chain, int64_t iter
 			srcPixFmt = PIX_FMT_RGBA;
 		else
 			srcPixFmt = PIX_FMT_YUYV422;
-
-		SwsContext *pSwsContext = sws_getContext(width, height, srcPixFmt, targetWidth, targetHeight, m_targetPixFmt, SWS_FAST_BILINEAR, 0, 0, 0);
+		
+		SwsContext *pSwsContext = sws_getContext(width, height, srcPixFmt, 
+			targetWidth, targetHeight, m_targetPixFmt, SWS_FAST_BILINEAR, 0, 0, 0);
 
 		pCache = new ConvertCache(width, height, subType, pSwsContext);
 
@@ -274,7 +275,8 @@ bool MIPAVCodecFrameConverter::push(const MIPComponentChain &chain, int64_t iter
 	else
 		pCache = (*it).second;
 
-	if (!(pCache->getSourceWidth() == width && pCache->getSourceHeight() == height && pCache->getSourceSubtype() == subType))
+	if (!(pCache->getSourceWidth() == width && pCache->getSourceHeight() == height && 
+		pCache->getSourceSubtype() == subType))
 	{
 		// ignore message
 		return true;
@@ -399,6 +401,8 @@ bool MIPAVCodecFrameConverter::push(const MIPComponentChain &chain, int64_t iter
 
 #endif // MIPCONFIG_SUPPORT_AVCODEC_OLD
 
+	pNewMsg->copyMediaInfoFrom(*pVideoMsg);
+
 	m_messages.push_back(pNewMsg);
 	m_msgIt = m_messages.begin();
 
@@ -429,6 +433,10 @@ bool MIPAVCodecFrameConverter::pull(const MIPComponentChain &chain, int64_t iter
 	{
 		*pMsg = *m_msgIt;
 		m_msgIt++;
+
+		//Ñ°ÕÒSourceIDÀ´Ô´
+		//MIPVideoMessage* p=(MIPVideoMessage *)(*pMsg);
+		//p->setSourceID(100);
 	}
 	return true;
 }

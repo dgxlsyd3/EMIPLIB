@@ -233,7 +233,8 @@ bool MIPWinMMInput::push(const MIPComponentChain &chain, int64_t iteration, MIPM
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
-	if (pMsg->getMessageType() == MIPMESSAGE_TYPE_SYSTEM && pMsg->getMessageSubtype() == MIPSYSTEMMESSAGE_TYPE_WAITTIME)
+	if (pMsg->getMessageType() == MIPMESSAGE_TYPE_SYSTEM && 
+		pMsg->getMessageSubtype() == MIPSYSTEMMESSAGE_TYPE_WAITTIME)
 	{
 		if (!JThread::IsRunning())
 		{
@@ -288,6 +289,14 @@ bool MIPWinMMInput::pull(const MIPComponentChain &chain, int64_t iteration, MIPM
 	{
 		m_gotMsg = true;
 		*pMsg = m_pMsg;
+
+/*
+		static DWORD dwTick=GetTickCount();
+		DWORD dwSub=GetTickCount()-dwTick;
+		if(dwSub!=0)
+		printf("MIPWinMMInput::pull=%d\n",dwSub);
+		dwTick=GetTickCount();
+*/
 	}
 
 	return true;

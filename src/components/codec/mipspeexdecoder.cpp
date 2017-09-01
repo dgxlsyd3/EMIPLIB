@@ -50,11 +50,11 @@ MIPSpeexDecoder::SpeexStateInfo::SpeexStateInfo(SpeexBandWidth b)
 	m_pBits = new SpeexBits;
 	speex_bits_init(m_pBits); 
 	if (b == NarrowBand)
-		m_pState = speex_decoder_init(&speex_nb_mode);
+		m_pState = speex_decoder_init(speex_lib_get_mode(SPEEX_MODEID_NB));
 	else if (b == WideBand)
-		m_pState = speex_decoder_init(&speex_wb_mode);
+		m_pState = speex_decoder_init(speex_lib_get_mode(SPEEX_MODEID_WB));
 	else
-		m_pState = speex_decoder_init(&speex_uwb_mode);
+		m_pState = speex_decoder_init(speex_lib_get_mode(SPEEX_MODEID_UWB));
 	m_bandWidth = b;
 	speex_decoder_ctl(m_pState, SPEEX_GET_FRAME_SIZE, &m_numFrames); 
 }

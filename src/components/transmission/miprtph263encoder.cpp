@@ -21,7 +21,7 @@
   USA
 
 */
-
+#pragma warning(disable:4018)
 #include "mipconfig.h"
 #include "miprtph263encoder.h"
 #include "miprtpmessage.h"

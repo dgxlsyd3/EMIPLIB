@@ -22,6 +22,9 @@
 
 */
 
+#pragma warning( disable : 4996 )
+#pragma warning( disable : 4244 )
+
 #include "mipconfig.h"
 
 #if defined(MIPCONFIG_SUPPORT_AVCODEC) && (defined(MIPCONFIG_SUPPORT_DIRECTSHOW) || defined(MIPCONFIG_SUPPORT_VIDEO4LINUX))
@@ -47,10 +50,11 @@
 #include "mipcomponentalias.h"
 #include "mipavcodecdecoder.h"
 #include "mipvideomixer.h"
-#include "mipqtoutput.h"
 #include "mipencodedvideomessage.h"
 #include "mipvideoframestorage.h"
 #include "miprawvideomessage.h"
+#include "mipwin32output.h"
+#include <rtpipv4address.h>
 #include <rtpsession.h>
 #include <rtpsessionparams.h>
 #include <rtperrors.h>
@@ -58,11 +62,11 @@
 
 #include "mipdebug.h"
 
-#define MIPVIDEOSESSION_ERRSTR_NOTINIT						"Not initialized"
-#define MIPVIDEOSESSION_ERRSTR_ALREADYINIT					"Already initialized"
-#define MIPVIDEOSESSION_ERRSTR_NOQTSUPPORT					"No Qt support available"
-#define MIPVIDEOSESSION_ERRSTR_NOSTORAGE					"The Qt component is being used instead of the storage component"
-#define MIPVIDEOSESSION_ERRSTR_CONFLICTPAYLOADTYPEMAPPING			"The incoming payload types for H263 and internal video formats cannot be the same"
+#define MIPVIDEOSESSION_ERRSTR_NOTINIT							"Not initialized"
+#define MIPVIDEOSESSION_ERRSTR_ALREADYINIT						"Already initialized"
+#define MIPVIDEOSESSION_ERRSTR_NOWIN32SUPPORT					"No Win32Out support available"
+#define MIPVIDEOSESSION_ERRSTR_NOSTORAGE						"The Win32Out component is being used instead of the storage component"
+#define MIPVIDEOSESSION_ERRSTR_CONFLICTPAYLOADTYPEMAPPING		"The incoming payload types for H263 and internal video formats cannot be the same"
 
 MIPVideoSession::MIPVideoSession()
 {
@@ -75,62 +79,78 @@ MIPVideoSession::~MIPVideoSession()
 	deleteAll();
 }
 
-bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchronizer *pSync, RTPSession *pRTPSession)
+bool MIPVideoSession::init(const MIPVideoSessionParams *pm_Params, 
+						   MIPRTPSynchronizer *pSync, 
+						   RTPSession *pRTPSession)
 {
+	MIPVideoSessionParams *pParams=(MIPVideoSessionParams *)pm_Params;
+	
 	if (m_init)
 	{
 		setErrorString(MIPVIDEOSESSION_ERRSTR_ALREADYINIT);
 		return false;
 	}
 
-	MIPVideoSessionParams defaultParams;
-	const MIPVideoSessionParams *pParams2 = &defaultParams;
-
-	if (pParams)
-		pParams2 = pParams;
-
-	MIPVideoSessionParams::SessionType sessionType = pParams2->getSessionType();
-	real_t frameRate = pParams2->getFrameRate();
-
-	if (pParams2->getIncomingInternalPayloadType() == pParams2->getIncomingH263PayloadType())
+	if (pParams==0)
 	{
+		setErrorString("pParams==0");
+		return false;
+	}
+
+	if (pRTPSession==0)
+	{
+		setErrorString("pRTPSession==0");
+		return false;
+	}
+
+	m_pRTPSession = pRTPSession;
+	m_deleteRTPSession = false;
+	
+	if (pParams->getIncomingInternalPayloadType() == pParams->getIncomingH263PayloadType())
+	{
+		//The incoming payload(有效载荷) types for H263 and internal video formats cannot be the same
 		setErrorString(MIPVIDEOSESSION_ERRSTR_CONFLICTPAYLOADTYPEMAPPING);
 		return false;
 	}
 
-	if (sessionType == MIPVideoSessionParams::InputOutput)
+	//支持视频采集+回放
+	if (pParams->getSessionType() == MIPVideoSessionParams::InputOutput)
 	{
 		int width;
 		int height;
 		
-		m_pTimer = new MIPAverageTimer(MIPTime(1.0/frameRate));
+		m_pTimer = new MIPAverageTimer(MIPTime(1.0/pParams->getFrameRate()));
 
 #if (defined(WIN32) || defined(_WIN32_WCE))
-		width = pParams2->getWidth();
-		height = pParams2->getHeight();
+		width = pParams->getWidth();
+		height = pParams->getHeight();
+
+		//视频采集，产生原始视频消息
 		m_pInput = new MIPDirectShowCapture();
-		if (!m_pInput->open(width, height, frameRate,pParams2->getDevice()))
+		if (!m_pInput->open(width, height, pParams->getFrameRate(),pParams->getDevice()))
 		{
-			setErrorString(m_pInput->getErrorString());
+			setErrorString("[MIPDirectShowCapture]"+m_pInput->getErrorString());
 			deleteAll();
 			return false;
 		}
 
-		if (m_pInput->getFrameSubtype() == MIPRAWVIDEOMESSAGE_TYPE_YUYV)
+		//如果是YUYV，则转换为YUV420P
+		if (m_pInput->getFrameSubtype() == MIPRAWVIDEOMESSAGE_TYPE_YUYV ||
+			m_pInput->getFrameSubtype() == MIPRAWVIDEOMESSAGE_TYPE_RGB24)
 		{
 			m_pInputFrameConverter = new MIPAVCodecFrameConverter();
 
 			if (!m_pInputFrameConverter->init(width, height, MIPRAWVIDEOMESSAGE_TYPE_YUV420P))
 			{
-				setErrorString(m_pInputFrameConverter->getErrorString());
+				setErrorString("[MIPAVCodecFrameConverter]"+m_pInputFrameConverter->getErrorString());
 				deleteAll();
 				return false;
 			}
-		}
+		}	
 #else
-		width = pParams2->getWidth();
-		height = pParams2->getHeight();
-		std::string devName = pParams2->getDevice();
+		width = pParams->getWidth();
+		height = pParams->getHeight();
+		std::string devName = pParams->getDevice();
 
 		m_pInput = new MIPV4L2Input();
 		if (!m_pInput->open(width, height, devName))
@@ -168,123 +188,92 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 			}
 		}
 #endif // WIN32 || _WIN32_WCE
-
-		int bandwidth = pParams2->getBandwidth();
 			
-		if (pParams2->getEncodingType() != MIPVideoSessionParams::IntYUV420)
+		if (pParams->getEncodingType() != MIPVideoSessionParams::IntYUV420)
 		{
 			m_pAvcEnc = new MIPAVCodecEncoder();
-			if (!m_pAvcEnc->init(width, height, frameRate, bandwidth))
+			if (!m_pAvcEnc->init(width, height, pParams->getAvcodecFrameRate(), pParams->getBandwidth()))
 			{
-				setErrorString(m_pAvcEnc->getErrorString());
+				setErrorString("[MIPAVCodecEncoder]"+m_pAvcEnc->getErrorString());
 				deleteAll();
 				return false;
 			}
 		}
 
-		if (pParams2->getEncodingType() == MIPVideoSessionParams::H263)
+		if (pParams->getEncodingType() == MIPVideoSessionParams::H263)
 		{
+			//创建H263编码器
 			m_pRTPH263Enc = new MIPRTPH263Encoder();
 
-			if (!m_pRTPH263Enc->init(frameRate, pParams2->getMaximumPayloadSize()))
+			if (!m_pRTPH263Enc->init(pParams->getFrameRate(), pParams->getMaximumPayloadSize()))
 			{
-				setErrorString(m_pRTPH263Enc->getErrorString());
+				setErrorString("[MIPRTPH263Encoder]"+m_pRTPH263Enc->getErrorString());
 				deleteAll();
 				return false;
 			}
 		
-			m_pRTPH263Enc->setPayloadType(pParams2->getOutgoingH263PayloadType());
+			m_pRTPH263Enc->setPayloadType(pParams->getOutgoingH263PayloadType());
 		}
 		else
 		{
 			MIPRTPVideoEncoder::EncodingType encType;
 
-			if (pParams2->getEncodingType() == MIPVideoSessionParams::IntH263)
+			if (pParams->getEncodingType() == MIPVideoSessionParams::IntH263)
 				encType = MIPRTPVideoEncoder::H263;
 			else // assume YUV420P
 				encType = MIPRTPVideoEncoder::YUV420P;
 
 			m_pRTPIntVideoEnc = new MIPRTPVideoEncoder();
-			if (!m_pRTPIntVideoEnc->init(frameRate, pParams2->getMaximumPayloadSize(), encType))
+			if (!m_pRTPIntVideoEnc->init(pParams->getFrameRate(), pParams->getMaximumPayloadSize(), encType))
 			{
-				setErrorString(m_pRTPIntVideoEnc->getErrorString());
+				setErrorString("[MIPRTPVideoEncoder]"+m_pRTPIntVideoEnc->getErrorString());
 				deleteAll();
 				return false;
 			}
 		
-			m_pRTPIntVideoEnc->setPayloadType(pParams2->getOutgoingInternalPayloadType());
+			m_pRTPIntVideoEnc->setPayloadType(pParams->getOutgoingInternalPayloadType());
 		}
-	}
+	}//end of "if (pParams->getSessionType() == MIPVideoSessionParams::InputOutput)"
 
-	if (pRTPSession != 0)
+	int status=0;
+	if ((status = m_pRTPSession->SetTimestampUnit(1.0/90000.0)) < 0)
 	{
-		int status;
-		
-		m_pRTPSession = pRTPSession;
-		m_deleteRTPSession = false;
-
-		if ((status = m_pRTPSession->SetTimestampUnit(1.0/90000.0)) < 0)
-		{
-			setErrorString(RTPGetErrorString(status));
-			deleteAll();
-			return false;		
-		}
-	}
-	else
-	{
-		RTPUDPv4TransmissionParams transParams;
-		RTPSessionParams sessParams;
-		int status;
-		
-		transParams.SetPortbase(pParams2->getPortbase());
-		transParams.SetRTPSendBuffer(1024*1024);// TODO: this ok?
-		transParams.SetRTPReceiveBuffer(1024*1024); // TODO: this ok?
-		sessParams.SetOwnTimestampUnit(1.0/90000.0);
-		sessParams.SetMaximumPacketSize(pParams2->getMaximumPayloadSize()+12); // account for RTP header
-		sessParams.SetAcceptOwnPackets(pParams2->getAcceptOwnPackets());
-
-		m_pRTPSession = new RTPSession();
-		m_deleteRTPSession = true;
-		
-		if ((status = m_pRTPSession->Create(sessParams,&transParams)) < 0)
-		{
-			setErrorString(RTPGetErrorString(status));
-			deleteAll();
-			return false;
-		}
+		setErrorString("[m_pRTPSession->SetTimestampUnit]"+RTPGetErrorString(status));
+		deleteAll();
+		return false;		
 	}
 	
 	m_pRTPComp = new MIPRTPComponent();
 	if (!m_pRTPComp->init(m_pRTPSession))
 	{
-		setErrorString(m_pRTPComp->getErrorString());
+		setErrorString("[MIPRTPComponent]"+m_pRTPComp->getErrorString());
 		deleteAll();
 		return false;
 	}
 
-	m_pTimer2 = new MIPAverageTimer(MIPTime(1.0/frameRate));
+	m_pTimer2 = new MIPAverageTimer(MIPTime(1.0/pParams->getFrameRate()));
 	
-	m_pRTPDec = new MIPRTPDecoder();
-	if (!m_pRTPDec->init(true, pSync, m_pRTPSession))
+	m_pRTPDecoder = new MIPRTPDecoder();
+	if (!m_pRTPDecoder->init(true, pSync, m_pRTPSession))
 	{
-		setErrorString(m_pRTPDec->getErrorString());
+		setErrorString("[MIPRTPDecoder]"+m_pRTPDecoder->getErrorString());
 		deleteAll();
 		return false;
 	}
 
 	m_pRTPDummyDec = new MIPRTPDummyDecoder();
-	m_pRTPDec->setDefaultPacketDecoder(m_pRTPDummyDec);
+	m_pRTPDecoder->setDefaultPacketDecoder(m_pRTPDummyDec);
 
 	m_pRTPH263Dec = new MIPRTPH263Decoder();
-	m_pRTPDec->setPacketDecoder(pParams2->getIncomingH263PayloadType(), m_pRTPH263Dec);
+	m_pRTPDecoder->setPacketDecoder(pParams->getIncomingH263PayloadType(), m_pRTPH263Dec);
 
 	m_pRTPIntVideoDec = new MIPRTPVideoDecoder();
-	m_pRTPDec->setPacketDecoder(pParams2->getIncomingInternalPayloadType(), m_pRTPIntVideoDec);
+	m_pRTPDecoder->setPacketDecoder(pParams->getIncomingInternalPayloadType(), m_pRTPIntVideoDec);
 
 	m_pMediaBuf = new MIPMediaBuffer();
-	if (!m_pMediaBuf->init(MIPTime(1.0/frameRate)))
+	if (!m_pMediaBuf->init(MIPTime(1.0/pParams->getFrameRate())))
 	{
-		setErrorString(m_pMediaBuf->getErrorString());
+		setErrorString("[MIPMediaBuffer]"+m_pMediaBuf->getErrorString());
 		deleteAll();
 		return false;
 	}
@@ -292,57 +281,58 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 	m_pBufferAlias = new MIPComponentAlias(m_pMediaBuf);
 	
 	m_pAvcDec = new MIPAVCodecDecoder();
-	if (!m_pAvcDec->init(pParams2->getWaitForKeyframe()))
+	if (!m_pAvcDec->init(pParams->getWaitForKeyframe()))
 	{
-		setErrorString(m_pAvcDec->getErrorString());
+		setErrorString("[MIPAVCodecDecoder]"+m_pAvcDec->getErrorString());
 		deleteAll();
 		return false;
 	}
 	
 	m_pMixer = new MIPVideoMixer();
-	if (!m_pMixer->init(frameRate))
+	if (!m_pMixer->init(pParams->getFrameRate()))
 	{
-		setErrorString(m_pMixer->getErrorString());
+		setErrorString("[MIPVideoMixer]"+m_pMixer->getErrorString());
 		deleteAll();
 		return false;
 	}
 
-	if (pParams2->getUseQtOutput())
+	if (pParams->getUseWin32Output())
 	{
-#ifdef MIPCONFIG_SUPPORT_QT
+#ifdef MIPCONFIG_SUPPORT_WIN32OUT
 		m_pOutputFrameConverter = new MIPAVCodecFrameConverter();
-		if (!m_pOutputFrameConverter->init(-1, -1, MIPRAWVIDEOMESSAGE_TYPE_RGB32))
+		if (!m_pOutputFrameConverter->init(-1, -1, MIPRAWVIDEOMESSAGE_TYPE_RGB24))
 		{
-			setErrorString(m_pOutputFrameConverter->getErrorString());
+			setErrorString("[MIPAVCodecFrameConverter]"+m_pOutputFrameConverter->getErrorString());
 			deleteAll();
 			return false;
 		}
 
-		m_pQtOutput = new MIPQtOutput();
-		if (!m_pQtOutput->init())
+		m_pWin32Output = new MIPWin32Output();
+		MIPWin32OutputEvent *pMIPWin32OutputEvent=pParams->getMIPWin32OutputEvent();
+		if (!m_pWin32Output->init(pMIPWin32OutputEvent))
 		{
-			setErrorString(m_pQtOutput->getErrorString());
+			setErrorString("[MIPWin32Output]"+m_pWin32Output->getErrorString());
 			deleteAll();
 			return false;
 		}
 #else
-		setErrorString(MIPVIDEOSESSION_ERRSTR_NOQTSUPPORT);
+		setErrorString(MIPVIDEOSESSION_ERRSTR_NOWIN32SUPPORT);
 		deleteAll();
 		return false;
-#endif // MIPCONFIG_SUPPORT_QT
+#endif // MIPCONFIG_SUPPORT_WIN32OUT
 	}
 	else
 	{
 		m_pStorage = new MIPVideoFrameStorage();
 		if (!m_pStorage->init())
 		{
-			setErrorString(m_pStorage->getErrorString());
+			setErrorString("[MIPVideoFrameStorage]"+m_pStorage->getErrorString());
 			deleteAll();
 			return false;
 		}
 	}
 	
-	if (sessionType == MIPVideoSessionParams::InputOutput)
+	if (pParams->getSessionType() == MIPVideoSessionParams::InputOutput)
 	{
 		// Create input chain
 		
@@ -353,7 +343,7 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 
 		MIPComponent *pRTPEnc = 0;
 
-		if (pParams2->getEncodingType() == MIPVideoSessionParams::H263)
+		if (pParams->getEncodingType() == MIPVideoSessionParams::H263)
 			pRTPEnc = m_pRTPH263Enc;
 		else
 			pRTPEnc = m_pRTPIntVideoEnc;
@@ -362,7 +352,7 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 		{
 			if (m_pInputFrameConverter == 0)
 			{
-				if (pParams2->getEncodingType() == MIPVideoSessionParams::IntYUV420)
+				if (pParams->getEncodingType() == MIPVideoSessionParams::IntYUV420)
 					m_pInputChain->addConnection(m_pInput, pRTPEnc);
 				else
 					m_pInputChain->addConnection(m_pInput, m_pAvcEnc);
@@ -371,7 +361,7 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 			{
 				m_pInputChain->addConnection(m_pInput, m_pInputFrameConverter);
 
-				if (pParams2->getEncodingType() == MIPVideoSessionParams::IntYUV420)
+				if (pParams->getEncodingType() == MIPVideoSessionParams::IntYUV420)
 					m_pInputChain->addConnection(m_pInputFrameConverter, pRTPEnc);
 				else
 					m_pInputChain->addConnection(m_pInputFrameConverter, m_pAvcEnc);
@@ -381,13 +371,13 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 		{
 			m_pInputChain->addConnection(m_pInput, m_pTinyJpegDec);
 
-			if (pParams2->getEncodingType() == MIPVideoSessionParams::IntYUV420)
+			if (pParams->getEncodingType() == MIPVideoSessionParams::IntYUV420)
 				m_pInputChain->addConnection(m_pTinyJpegDec, pRTPEnc);
 			else
 				m_pInputChain->addConnection(m_pTinyJpegDec, m_pAvcEnc);
 		}
 
-		if (pParams2->getEncodingType() != MIPVideoSessionParams::IntYUV420)
+		if (pParams->getEncodingType() != MIPVideoSessionParams::IntYUV420)
 			m_pInputChain->addConnection(m_pAvcEnc, pRTPEnc);
 
 		m_pInputChain->addConnection(pRTPEnc, m_pRTPComp);
@@ -398,31 +388,33 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 	m_pOutputChain->setChainStart(m_pTimer2);
 	m_pOutputChain->addConnection(m_pTimer2, m_pRTPComp);
 
-	m_pOutputChain->addConnection(m_pRTPComp, m_pRTPDec);
-	m_pOutputChain->addConnection(m_pRTPDec, m_pMediaBuf, true);
-	m_pOutputChain->addConnection(m_pMediaBuf, m_pAvcDec, true, MIPMESSAGE_TYPE_VIDEO_ENCODED, MIPENCODEDVIDEOMESSAGE_TYPE_H263P);
+	m_pOutputChain->addConnection(m_pRTPComp, m_pRTPDecoder);
+	m_pOutputChain->addConnection(m_pRTPDecoder, m_pMediaBuf, true);
+	m_pOutputChain->addConnection(m_pMediaBuf, m_pAvcDec, true, 
+		MIPMESSAGE_TYPE_VIDEO_ENCODED, MIPENCODEDVIDEOMESSAGE_TYPE_H263P);
 	m_pOutputChain->addConnection(m_pAvcDec, m_pMixer, true);
 	
 	m_pOutputChain->addConnection(m_pMediaBuf, m_pBufferAlias, false, 0, 0); // extra link to creat equal length branches
-	m_pOutputChain->addConnection(m_pBufferAlias, m_pMixer, false, MIPMESSAGE_TYPE_VIDEO_RAW, MIPRAWVIDEOMESSAGE_TYPE_YUV420P);
+	m_pOutputChain->addConnection(m_pBufferAlias, m_pMixer, false, 
+		MIPMESSAGE_TYPE_VIDEO_RAW, MIPRAWVIDEOMESSAGE_TYPE_YUV420P);
  
-#ifdef MIPCONFIG_SUPPORT_QT
-	if (pParams2->getUseQtOutput())
+#ifdef MIPCONFIG_SUPPORT_WIN32OUT
+	if (pParams->getUseWin32Output())
 	{
 		m_pOutputChain->addConnection(m_pMixer, m_pOutputFrameConverter, true);
-		m_pOutputChain->addConnection(m_pOutputFrameConverter, m_pQtOutput, true);
+		m_pOutputChain->addConnection(m_pOutputFrameConverter, m_pWin32Output, true);
 	}
 	else
 		m_pOutputChain->addConnection(m_pMixer, m_pStorage, true);
 #else
 	m_pOutputChain->addConnection(m_pMixer, m_pStorage, true);
-#endif // MIPCONFIG_SUPPORT_QT
+#endif // MIPCONFIG_SUPPORT_WIN32OUT
 
 	if (m_pInputChain)
 	{
 		if (!m_pInputChain->start())
 		{
-			setErrorString(m_pInputChain->getErrorString());
+			setErrorString("[m_pInputChain->start()]"+m_pInputChain->getErrorString());
 			deleteAll();
 			return false;
 		}
@@ -430,7 +422,7 @@ bool MIPVideoSession::init(const MIPVideoSessionParams *pParams, MIPRTPSynchroni
 
 	if (!m_pOutputChain->start())
 	{
-		setErrorString(m_pOutputChain->getErrorString());
+		setErrorString("[m_pOutputChain->start()]"+m_pOutputChain->getErrorString());
 		deleteAll();
 		return false;
 	}
@@ -454,7 +446,6 @@ bool MIPVideoSession::destroy()
 
 // Note: since we can't be sure that the underlying RTPTransmitter
 // was compiled in a thread-safe way, we'll lock the RTP component
-
 bool MIPVideoSession::addDestination(const RTPAddress &addr)
 {
 	if (!m_init)
@@ -475,6 +466,15 @@ bool MIPVideoSession::addDestination(const RTPAddress &addr)
 	m_pRTPComp->unlock();
 
 	return true;
+}
+
+bool MIPVideoSession::addDestination( char* lp_addr,int port )
+{
+	int ip[4]={0,0,0,0};
+	sscanf(lp_addr,"%d.%d.%d.%d",&ip[0],&ip[1],&ip[2],&ip[3]);
+
+	uint8_t ip2[4]={ip[0],ip[1],ip[2],ip[3]};
+	return addDestination(RTPIPv4Address(ip2, port));
 }
 
 bool MIPVideoSession::deleteDestination(const RTPAddress &addr)
@@ -739,7 +739,7 @@ void MIPVideoSession::zeroAll()
 	m_pRTPSession = 0;
 	m_pTimer = 0;
 	m_pTimer2 = 0;
-	m_pRTPDec = 0;
+	m_pRTPDecoder = 0;
 	m_pRTPH263Dec = 0;
 	m_pRTPIntVideoDec = 0;
 	m_pRTPDummyDec = 0;
@@ -747,7 +747,7 @@ void MIPVideoSession::zeroAll()
 	m_pBufferAlias = 0;
 	m_pAvcDec = 0;
 	m_pMixer = 0;
-	m_pQtOutput = 0;
+	m_pWin32Output = 0;
 	m_pStorage = 0;
 }
 
@@ -771,10 +771,10 @@ void MIPVideoSession::deleteAll()
 		delete m_pInputFrameConverter;
 	if (m_pOutputFrameConverter)
 		delete m_pOutputFrameConverter;
-#ifdef MIPCONFIG_SUPPORT_QT
-	if (m_pQtOutput)
-		delete m_pQtOutput;
-#endif // MIPCONFIG_SUPPORT_QT
+#ifdef MIPCONFIG_SUPPORT_WIN32OUT
+	if (m_pWin32Output)
+		delete m_pWin32Output;
+#endif // MIPCONFIG_SUPPORT_WIN32OUT
 	if (m_pStorage)
 		delete m_pStorage;
 	if (m_pTimer)
@@ -797,8 +797,8 @@ void MIPVideoSession::deleteAll()
 	}
 	if (m_pTimer2)
 		delete m_pTimer2;
-	if (m_pRTPDec)
-		delete m_pRTPDec;
+	if (m_pRTPDecoder)
+		delete m_pRTPDecoder;
 	if (m_pRTPH263Dec)
 		delete m_pRTPH263Dec;
 	if (m_pRTPIntVideoDec)

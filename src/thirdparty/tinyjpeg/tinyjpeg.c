@@ -31,6 +31,7 @@
  *
  */
 
+#pragma warning(disable:4244)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -95,7 +95,6 @@ bool MIPTinyJPEGDecoder::push(const MIPComponentChain &chain, int64_t iteration,
 	}
 
 	MIPEncodedVideoMessage *pEncMsg = (MIPEncodedVideoMessage *)pMsg;
-	int status;
 	struct jdec_private *pDec;
 
 	pDec = tinyjpeg_init();

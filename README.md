@@ -93,3 +93,6 @@ publically available. Please see the source code in
 `src/thirdparty/tinyjpeg` for more information about copyright and
 disclaimer.
 
+1.0.0 for Win32
+---------------
+branch v1.0.0_win32 is modified for Win32.
